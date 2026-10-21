@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <title>Neon Arcade</title>
 <style>
 :root{--bg:#07040f;--panel:#120a24;--cyan:#19f2ff;--pink:#ff2bd6;--lime:#7dff6a;--red:#ff3b5c;--text:#e9e4ff;--dim:#8a7fb0;
@@ -285,7 +286,7 @@ input:disabled{opacity:.45}
   }
   function errText(e){
     var m=e&&e.message;
-    return m==='unauthorized'?'Открой игру через Telegram':m==='no_balance'?'Не хватает баланса':m==='round_active'?'Раунд ещё идёт':m==='slow_down'?'Слишком часто':m==='too_early'?'Бонус уже получен':'Ошибка связи, попробуй ещё раз';
+    return m==='unauthorized'?((tg&&tg.initData)?'Ошибка входа: проверь BOT_TOKEN на сервере':'Открой игру через Telegram'):m==='no_balance'?'Не хватает баланса':m==='round_active'?'Раунд ещё идёт':m==='slow_down'?'Слишком часто':m==='too_early'?'Бонус уже получен':'Ошибка связи, попробуй ещё раз';
   }
   function showFair(f){if(f){var t='Provably fair · hash '+f.hash.slice(0,16)+'… · nonce '+f.nonce;$('fair').textContent=t;$('fair2').textContent=t}}
   var busy=false,polling=false,lastPoll=0,rtt=0;

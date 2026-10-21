@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Neon Arcade</title>
+<style>
+:root{--bg:#07040f;--panel:#120a24;--cyan:#19f2ff;--pink:#ff2bd6;--lime:#7dff6a;--red:#ff3b5c;--text:#e9e4ff;--dim:#8a7fb0;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:dark}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif}
+body{min-height:100vh;background:radial-gradient(600px 300px at 80% -10%,#3a0f55 0%,transparent 70%),radial-gradient(500px 300px at 0% 100%,#06344a 0%,transparent 70%),var(--bg)}
+.app{max-width:480px;margin:0 auto;padding:12px 12px 24px}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+h1{font-size:22px;margin:0;color:var(--pink);text-shadow:0 0 8px var(--pink),0 0 22px var(--pink);letter-spacing:1px}
+.bal{padding:6px 12px;border:1px solid var(--cyan);border-radius:20px;color:var(--cyan);box-shadow:0 0 10px #19f2ff55,inset 0 0 8px #19f2ff33;font-weight:700}
+.mute{background:none;border:1px solid var(--dim);color:var(--dim);border-radius:50%;width:34px;height:34px;font-size:16px;margin-left:8px}
+.hist{display:flex;gap:6px;overflow-x:auto;margin-bottom:10px;min-height:28px;padding-bottom:2px}
+.h{flex:none;padding:4px 9px;border-radius:14px;font-size:13px;font-weight:800;border:1px solid}
+.h.lo{color:var(--red);border-color:var(--red)}.h.mid{color:var(--cyan);border-color:var(--cyan)}.h.hi{color:var(--pink);border-color:var(--pink);box-shadow:0 0 8px #ff2bd677}
+.stage{position:relative;border:1px solid #3a2a63;border-radius:14px;background:#0c0618;box-shadow:inset 0 0 24px #8a3bff22;overflow:hidden;margin-bottom:12px}
+canvas{display:block;width:100%;height:270px}
+.big{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;text-align:center}
+#m{font-size:56px;font-weight:900;color:#fff;text-shadow:0 0 12px var(--cyan),0 0 30px var(--cyan)}
+#m.crash{color:var(--red);text-shadow:0 0 12px var(--red),0 0 30px var(--red)}
+#m.won{color:var(--lime);text-shadow:0 0 12px var(--lime),0 0 30px var(--lime)}
+#sub{font-size:15px;font-weight:700;color:var(--dim);min-height:22px}
+.panel{background:var(--panel);border:1px solid #3a2a63;border-radius:14px;padding:12px}
+.lbl{font-size:12px;color:var(--dim);margin-bottom:6px}
+.cols{display:flex;gap:10px;margin-bottom:8px}.cols>div{flex:1}
+input{width:100%;padding:11px;font-size:18px;font-weight:700;text-align:center;background:#0c0618;color:var(--lime);border:1px solid var(--lime);border-radius:10px;box-shadow:0 0 10px #7dff6a44}
+input.au{color:var(--cyan);border-color:var(--cyan);box-shadow:0 0 10px #19f2ff44}
+input:disabled{opacity:.45}
+.row{display:flex;gap:6px;margin-bottom:10px}
+.chip{flex:1;padding:9px 6px;background:#1b1138;border:1px solid #3a2a63;color:var(--text);border-radius:10px;font-weight:700;font-size:14px}
+.chip:disabled{opacity:.45}
+.go{width:100%;padding:15px;font-size:19px;font-weight:800;border:0;border-radius:12px;color:#07040f;background:linear-gradient(90deg,var(--cyan),var(--pink));box-shadow:0 0 18px #ff2bd699}
+.go.cash{background:linear-gradient(90deg,var(--lime),var(--cyan));box-shadow:0 0 18px #7dff6a99}
+.go:disabled{opacity:.5}
+.shake{animation:shake .4s}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+.go:not(:disabled):not(.cash){animation:glow 2.6s ease-in-out infinite}
+.go.cash:not(:disabled){animation:glowg 1s ease-in-out infinite}
+#m.fly{animation:pulse 1.1s ease-in-out infinite}
+#m.won{animation:pop .5s ease-out}
+.mute.on{border-color:var(--pink);color:var(--pink);box-shadow:0 0 10px #ff2bd666}
+@keyframes glow{0%,100%{box-shadow:0 0 14px #ff2bd666}50%{box-shadow:0 0 26px #19f2ffcc}}
+@keyframes glowg{0%,100%{box-shadow:0 0 14px #7dff6a77}50%{box-shadow:0 0 30px #7dff6add}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
+@keyframes pop{0%{transform:scale(.7)}60%{transform:scale(1.2)}100%{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.shake,.go,#m{animation:none!important}}
+[hidden]{display:none!important}
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tabs button{flex:1;padding:10px 4px;background:#1b1138;border:1px solid #3a2a63;color:var(--dim);border-radius:12px;font-weight:800;font-size:14px}
+.tabs button.on{color:var(--cyan);border-color:var(--cyan);box-shadow:0 0 12px #19f2ff66,inset 0 0 8px #19f2ff22}
+.mc{flex:1;min-width:48px;padding:9px 6px;background:#1b1138;border:1px solid #3a2a63;color:var(--text);border-radius:10px;font-weight:700;font-size:14px}
+.mc.on{border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 10px #19f2ff66,inset 0 0 8px #19f2ff33}
+.mc:disabled{opacity:.45}
+.panel{margin-bottom:12px}
+.info{display:flex;justify-content:space-between;text-align:center;gap:8px}
+.info div{flex:1;background:#0c0618;border-radius:10px;padding:8px 4px;border:1px solid #2b1d4d}
+.info b{display:block;font-size:18px;margin-top:2px}
+#mm{color:var(--cyan);text-shadow:0 0 8px var(--cyan)}#mw{color:var(--lime);text-shadow:0 0 8px var(--lime)}#mn{color:var(--pink)}
+.grid{display:grid;width:100%;margin:0 auto}
+.cell{aspect-ratio:1;border:1px solid #4a2f8a;border-radius:10px;background:linear-gradient(145deg,#1d1040,#120a24);box-shadow:inset 0 0 10px #8a3bff33;padding:0;display:flex;align-items:center;justify-content:center}
+.cell:not(:disabled):active{transform:scale(.93);border-color:var(--cyan)}
+.cell svg{width:68%;height:68%;animation:cpop .28s ease-out}
+.cell.gem{border-color:var(--cyan);background:#06222c;box-shadow:0 0 12px #19f2ff88,inset 0 0 12px #19f2ff44}
+.cell.mine{border-color:var(--red);background:#2a0612;box-shadow:0 0 14px #ff3b5ccc,inset 0 0 12px #ff3b5c66}
+.cell.dim{opacity:.4}.cell.dim svg{animation:none}
+.mmsg{min-height:26px;text-align:center;font-weight:800;margin:10px 0;font-size:17px}
+.mmsg.w{color:var(--lime);text-shadow:0 0 10px var(--lime)}.mmsg.l{color:var(--red);text-shadow:0 0 10px var(--red)}
+.tr{display:flex;justify-content:space-between;padding:9px 4px;border-bottom:1px solid #2b1d4d}
+.tr.me{color:var(--cyan);text-shadow:0 0 8px #19f2ff88}
+@keyframes cpop{0%{transform:scale(.2) rotate(-25deg);opacity:0}70%{transform:scale(1.2)}100%{transform:scale(1);opacity:1}}
+@media (prefers-reduced-motion:reduce){.cell svg{animation:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <h1>NEON ARCADE</h1>
+    <div style="display:flex;align-items:center"><div class="bal"><span id="bal">1000</span> ◆</div><button class="mute on" id="mus" aria-label="Музыка">🎵</button><button class="mute" id="mute" aria-label="Звук">🔊</button></div>
+  </div>
+  <nav class="tabs"><button id="tab-crash" class="on">🚀 Crash</button><button id="tab-mines">💎 Mines</button><button id="tab-top">🏆 Топ</button></nav>
+  <section id="t-crash">
+  <div class="hist" id="hist"></div>
+  <div class="stage" id="stage">
+    <canvas id="cv"></canvas>
+    <div class="big"><div id="m">1.00x</div><div id="sub">Сделай ставку и запускай ракету</div></div>
+  </div>
+  <div class="panel">
+    <div class="cols">
+      <div><div class="lbl">Ставка</div><input id="bet" type="number" inputmode="numeric" min="1" value="100"></div>
+      <div><div class="lbl">Авто-вывод (x)</div><input id="auto" class="au" type="number" inputmode="decimal" min="1.01" step="0.01" placeholder="выкл"></div>
+    </div>
+    <div class="row" id="quick"></div>
+    <button class="go" id="go">Взлёт</button>
+    <div class="lbl" id="fair" style="margin:10px 0 0;word-break:break-all"></div>
+  </div>
+  </section>
+
+  <section id="t-mines" hidden>
+    <div class="panel" id="msetup">
+      <div class="lbl">Размер поля</div><div class="row" id="msizes"></div>
+      <div class="lbl">Количество мин</div><div class="row" id="mmines"></div>
+      <div class="lbl">Ставка</div>
+      <input id="mbet" type="number" inputmode="numeric" min="1" value="100" style="margin-bottom:8px">
+      <div class="row" id="mquick" style="margin-bottom:0"></div>
+    </div>
+    <div class="panel info" id="mstats" hidden>
+      <div>Множитель<b id="mm">x1.00</b></div><div>Следующий<b id="mn">x1.00</b></div><div>Выигрыш<b id="mw">0</b></div>
+    </div>
+    <div class="grid" id="mgrid"></div>
+    <div class="mmsg" id="mmsg"></div>
+    <button class="go" id="mgo">Играть</button>
+    <div class="lbl" id="fair2" style="margin:10px 0 0;word-break:break-all"></div>
+  </section>
+
+  <section id="t-top" hidden>
+    <div class="panel">
+      <button class="go" id="bonus">Ежедневный бонус +500 ◆</button>
+      <div class="lbl" id="bmsg" style="margin:8px 0 0;text-align:center"></div>
+    </div>
+    <div class="panel"><div class="lbl" id="rank"></div><div id="toplist"></div></div>
+  </section>
+</div>
+
+<script>
+(function(){
+  var G=0.12, EDGE=97;
+  var st={bal:1000,bet:100,phase:'idle',t0:0,crashAt:1,cashed:false,cashM:0,auto:0,muted:false,music:true,hist:[],raf:0,parts:[]};
+  var $=function(id){return document.getElementById(id)};
+  var tg=window.Telegram&&window.Telegram.WebApp;
+  if(tg){try{tg.ready();tg.expand();tg.setHeaderColor('#07040f');tg.setBackgroundColor('#07040f')}catch(e){}}
+  function save(){}
+
+  /* ---------- sound ---------- */
+  var ac=null,hum=null;
+  function ctx(){if(!ac){try{ac=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}if(ac&&ac.state==='suspended')ac.resume();return ac}
+  function tone(f,d,type,v,slide,delay){
+    if(st.muted)return;var c=ctx();if(!c)return;
+    var t=c.currentTime+(delay||0),o=c.createOscillator(),g=c.createGain();
+    o.type=type||'sine';o.frequency.setValueAtTime(f,t);
+    if(slide)o.frequency.exponentialRampToValueAtTime(slide,t+d);
+    g.gain.setValueAtTime(v||.15,t);g.gain.exponentialRampToValueAtTime(.0001,t+d);
+    o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+d+.02);
+  }
+  function noise(d,v){
+    if(st.muted)return;var c=ctx();if(!c)return;
+    var len=Math.floor(c.sampleRate*d),b=c.createBuffer(1,len,c.sampleRate),a=b.getChannelData(0);
+    for(var i=0;i<len;i++)a[i]=(Math.random()*2-1)*(1-i/len);
+    var s=c.createBufferSource(),g=c.createGain();g.gain.value=v||.3;s.buffer=b;s.connect(g);g.connect(c.destination);s.start();
+  }
+  function humStart(){
+    if(st.muted)return;var c=ctx();if(!c||hum)return;
+    var o=c.createOscillator(),g=c.createGain();o.type='triangle';o.frequency.value=90;g.gain.value=.025;
+    o.connect(g);g.connect(c.destination);o.start();hum={o:o,g:g};
+  }
+  function humSet(m){if(hum)hum.o.frequency.value=90+Math.min(Math.log(m)*140,700)}
+  function humStop(){if(hum){try{hum.o.stop()}catch(e){}hum=null}}
+  var sfx={
+    launch:function(){noise(.5,.18);tone(120,.5,'sawtooth',.12,500)},
+    cash:function(){[660,830,990,1320].forEach(function(f,i){tone(f,.25,'triangle',.16,null,i*.08)})},
+    crash:function(){noise(.7,.55);tone(200,.8,'sawtooth',.25,35)},
+    tap:function(){tone(420,.05,'square',.05)},
+    gem:function(i){var f=520+Math.min(i,20)*35;tone(f,.18,'sine',.18);tone(f*1.5,.25,'triangle',.1,null,.06)},
+    mine:function(){noise(.6,.5);tone(180,.7,'sawtooth',.25,40)}
+  };
+  function buzz(k){try{if(tg&&tg.HapticFeedback){k==='bad'?tg.HapticFeedback.notificationOccurred('error'):k==='good'?tg.HapticFeedback.notificationOccurred('success'):tg.HapticFeedback.impactOccurred('light')}else if(navigator.vibrate)navigator.vibrate(k==='bad'?[80,40,120]:15)}catch(e){}}
+
+  /* ---------- calm ambient music ---------- */
+  var mus=null,ci=0,PROG=[[130.81,164.81,196,246.94],[110,164.81,196,261.63],[87.31,130.81,164.81,220],[98,146.83,164.81,246.94]],BELL=[523.25,587.33,659.25,783.99,880,1046.5];
+  function pad(c,f,t,dur){
+    var lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.value=900;lp.connect(mus.bus);
+    ['sine','triangle'].forEach(function(ty,k){
+      var o=c.createOscillator(),g=c.createGain(),v=k?.008:.022;o.type=ty;o.frequency.value=f;o.detune.value=k?6:-6;
+      g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+3);g.gain.setValueAtTime(v,t+dur-1);g.gain.linearRampToValueAtTime(0,t+dur+3);
+      o.connect(g);g.connect(lp);o.start(t);o.stop(t+dur+3.2);
+    });
+  }
+  function bell(c,f,t){
+    var o=c.createOscillator(),g=c.createGain();o.type='sine';o.frequency.value=f;
+    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.035,t+.03);g.gain.exponentialRampToValueAtTime(.0001,t+3.5);
+    o.connect(g);g.connect(mus.bus);o.start(t);o.stop(t+3.6);
+  }
+  function chordLoop(){if(!mus)return;var c=ac,t=c.currentTime+.05;PROG[ci++%PROG.length].forEach(function(f){pad(c,f,t,7.5)});mus.t1=setTimeout(chordLoop,7500)}
+  function bellLoop(){if(!mus)return;var c=ac;bell(c,BELL[Math.floor(Math.random()*BELL.length)],c.currentTime+.05);mus.t2=setTimeout(bellLoop,1800+Math.random()*3500)}
+  function musicStart(){
+    if(!st.music||mus)return;var c=ctx();if(!c)return;
+    var bus=c.createGain();bus.gain.setValueAtTime(0,c.currentTime);bus.gain.linearRampToValueAtTime(.9,c.currentTime+4);
+    var d=c.createDelay(1),fb=c.createGain(),lp=c.createBiquadFilter(),wet=c.createGain();
+    d.delayTime.value=.5;fb.gain.value=.45;lp.type='lowpass';lp.frequency.value=1600;wet.gain.value=.5;
+    bus.connect(c.destination);bus.connect(d);d.connect(lp);lp.connect(fb);fb.connect(d);lp.connect(wet);wet.connect(c.destination);
+    mus={bus:bus};chordLoop();mus.t2=setTimeout(bellLoop,2500);
+  }
+  function musicStop(){
+    if(!mus)return;var c=ac,m=mus;mus=null;clearTimeout(m.t1);clearTimeout(m.t2);
+    m.bus.gain.cancelScheduledValues(c.currentTime);m.bus.gain.setValueAtTime(m.bus.gain.value,c.currentTime);m.bus.gain.linearRampToValueAtTime(0,c.currentTime+1);
+  }
+  document.addEventListener('pointerdown',function(){musicStart()},{once:true});
+  document.addEventListener('visibilitychange',function(){if(!ac)return;if(document.hidden)ac.suspend();else ac.resume()});
+  $('mus').onclick=function(){st.music=!st.music;$('mus').classList.toggle('on',st.music);if(st.music)musicStart();else musicStop()};
+
+  /* ---------- background animation ---------- */
+  var SS=[];for(var si=0;si<70;si++)SS.push({x:Math.random(),y:Math.random(),z:.2+Math.random()*.8,p:Math.random()*6.28});
+  function stars(m){
+    var fly=st.phase==='flying',sp=fly?(.0015+Math.min(Math.log(m),4)*.002):.0002,now=performance.now()/1000;
+    SS.forEach(function(s){
+      s.x-=sp*s.z;s.y+=sp*s.z*.5;
+      if(s.x<0){s.x=1;s.y=Math.random()}
+      if(s.y>1){s.y=0;s.x=Math.random()}
+      cx.globalAlpha=(.35+.4*Math.sin(now*1.5+s.p))*s.z;cx.fillStyle=s.z>.7?'#19f2ff':'#e9e4ff';
+      cx.fillRect(s.x*W,s.y*H,1.5+s.z*1.2+(fly?s.z*sp*W*6:0),1.5+s.z*1.2);
+    });
+    cx.globalAlpha=1;
+  }
+  function trail(px,py){for(var i=0;i<2;i++)st.parts.push({x:px-10,y:py+(Math.random()-.5)*4,vx:-1-Math.random(),vy:(Math.random()-.5)*.6-.05,l:.55,c:Math.random()<.5?'#ff2bd6':'#19f2ff',s:1.5+Math.random()*2.5})}
+  function rocket(px,py,a){
+    cx.save();cx.translate(px,py);cx.rotate(a);cx.shadowColor='#ff2bd6';cx.shadowBlur=18;cx.fillStyle='#ff2bd6';
+    cx.beginPath();cx.moveTo(14,0);cx.lineTo(-10,-8);cx.lineTo(-5,0);cx.lineTo(-10,8);cx.closePath();cx.fill();
+    cx.fillStyle='#ffd34d';cx.beginPath();cx.moveTo(-7,-3);cx.lineTo(-13-Math.random()*5,0);cx.lineTo(-7,3);cx.closePath();cx.fill();cx.restore();
+  }
+
+  /* ---------- helpers ---------- */
+  function money(v){return Math.floor(v).toLocaleString('ru-RU')}
+  function genCrash(){var r=Math.random();return Math.min(1000,Math.max(1,Math.floor(EDGE/(1-r))/100))}
+  function mAt(t){return Math.exp(G*t)}
+  function histRender(){
+    var h=$('hist');h.innerHTML='';
+    st.hist.forEach(function(v){var d=document.createElement('div');d.className='h '+(v<2?'lo':v<10?'mid':'hi');d.textContent=v.toFixed(2)+'x';h.appendChild(d)});
+  }
+  function bal(){$('bal').textContent=money(st.bal)}
+
+  /* ---------- canvas ---------- */
+  var cv=$('cv'),cx=cv.getContext('2d'),W=0,H=0;
+  function resize(){var d=window.devicePixelRatio||1;W=cv.clientWidth;H=cv.clientHeight;cv.width=W*d;cv.height=H*d;cx.setTransform(d,0,0,d,0,0);draw(st.phase==='idle'?1:curM,curT)}
+  window.addEventListener('resize',resize);
+  var curM=1,curT=0;
+  function draw(m,t){
+    cx.clearRect(0,0,W,H);stars(m);
+    var pad=14,xmax=Math.max(8,t*1.12),ymax=Math.max(2,m*1.2),lymax=Math.log(ymax);
+    var X=function(tt){return pad+(W-pad*2)*tt/xmax}, Y=function(mm){return H-pad-(H-pad*2)*Math.log(mm)/lymax};
+    cx.strokeStyle='#2b1d4d';cx.lineWidth=1;
+    for(var i=1;i<5;i++){var yy=H-pad-(H-pad*2)*i/5;cx.beginPath();cx.moveTo(pad,yy);cx.lineTo(W-pad,yy);cx.stroke()}
+    var col=st.phase==='crashed'?'#ff3b5c':st.cashed?'#7dff6a':'#19f2ff';
+    if(st.phase!=='idle'){
+      cx.beginPath();cx.moveTo(X(0),Y(1));
+      var n=70;for(var k=1;k<=n;k++){var tt=t*k/n;cx.lineTo(X(tt),Y(mAt(tt)))}
+      cx.lineJoin='round';cx.lineWidth=4;cx.strokeStyle=col;cx.shadowColor=col;cx.shadowBlur=16;cx.stroke();
+      cx.lineTo(X(t),H-pad);cx.lineTo(X(0),H-pad);cx.closePath();cx.shadowBlur=0;cx.globalAlpha=.12;cx.fillStyle=col;cx.fill();cx.globalAlpha=1;
+      var px=X(t),py=Y(m);
+      if(st.phase==='flying'){
+        var a=Math.atan2(Y(mAt(t+.02))-py,X(t+.02)-px);
+        trail(px,py);cx.save();cx.translate(px,py);cx.rotate(a);cx.shadowColor='#ff2bd6';cx.shadowBlur=18;cx.fillStyle='#ff2bd6';
+        cx.beginPath();cx.moveTo(14,0);cx.lineTo(-10,-8);cx.lineTo(-5,0);cx.lineTo(-10,8);cx.closePath();cx.fill();
+        cx.fillStyle='#ffd34d';cx.beginPath();cx.moveTo(-6,0);cx.lineTo(-20-Math.random()*8,0);cx.lineTo(-8,-3);cx.closePath();cx.fill();cx.restore();
+      }
+    } else {
+      cx.shadowColor='#19f2ff';cx.shadowBlur=14;cx.strokeStyle='#19f2ff';cx.lineWidth=3;cx.beginPath();cx.moveTo(pad,H-pad);cx.lineTo(W-pad,H-pad);cx.stroke();cx.shadowBlur=0;
+      var ti=performance.now()/1000;rocket(pad+46,H-pad-28+Math.sin(ti*2)*5,-.9+Math.sin(ti*1.3)*.06);
+    }
+    st.parts=st.parts.filter(function(p){return p.l>0});
+    st.parts.forEach(function(p){p.x+=p.vx;p.y+=p.vy;p.vy+=.08;p.l-=.02;cx.globalAlpha=Math.max(p.l,0);cx.fillStyle=p.c;cx.fillRect(p.x,p.y,p.s||3,p.s||3)});
+    cx.globalAlpha=1;
+  }
+  function boom(){
+    var pad=14,xmax=Math.max(8,curT*1.12),ymax=Math.max(2,curM*1.2);
+    var px=pad+(W-pad*2)*curT/xmax,py=H-pad-(H-pad*2)*Math.log(curM)/Math.log(ymax);
+    for(var i=0;i<50;i++){var a=Math.random()*6.283,s=1+Math.random()*4;st.parts.push({x:px,y:py,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:1,c:['#ff3b5c','#ffd34d','#ff2bd6'][i%3]})}
+  }
+
+  /* ---------- game loop ---------- */
+  function setBtn(){
+    var b=$('go');b.classList.remove('cash');
+    if(st.phase==='idle'||st.phase==='crashed'){b.disabled=false;b.textContent='Взлёт'}
+    else if(st.phase==='flying'&&!st.cashed){b.disabled=false;b.classList.add('cash');b.textContent='Забрать '+money(st.bet*curM)+' ◆'}
+    else{b.disabled=true;b.textContent='Ждём конец раунда'}
+  }
+  function lock(on){$('bet').disabled=on;$('auto').disabled=on;document.querySelectorAll('.chip').forEach(function(c){c.disabled=on})}
+  /* ---------- server API (all money logic lives on the server) ---------- */
+  function api(path,body){
+    return fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-Tg-Init':tg?tg.initData:''},body:JSON.stringify(body||{})})
+      .then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||'error');return j})});
+  }
+  function errText(e){
+    var m=e&&e.message;
+    return m==='unauthorized'?'Открой игру через Telegram':m==='no_balance'?'Не хватает баланса':m==='round_active'?'Раунд ещё идёт':m==='slow_down'?'Слишком часто':m==='too_early'?'Бонус уже получен':'Ошибка связи, попробуй ещё раз';
+  }
+  function showFair(f){if(f){var t='Provably fair · hash '+f.hash.slice(0,16)+'… · nonce '+f.nonce;$('fair').textContent=t;$('fair2').textContent=t}}
+  var busy=false,polling=false,lastPoll=0,rtt=0;
+  function start(){
+    if(busy)return;
+    var bet=Math.floor(+$('bet').value);
+    if(!(bet>=1)){$('sub').textContent='Введи ставку от 1';return}
+    if(bet>st.bal){$('sub').textContent='Не хватает баланса';return}
+    ctx();musicStart();var a=parseFloat($('auto').value);st.auto=a>1?a:0;busy=true;var t1=performance.now();
+    api('/api/bet',{amount:bet,auto:st.auto||null}).then(function(r){
+      rtt=performance.now()-t1;st.bet=bet;st.bal=r.balance;bal();showFair(r.fair);
+      st.cashed=false;st.cashM=0;st.crashAt=0;st.phase='flying';st.parts=[];
+      $('m').className='fly';$('sub').textContent='Ракета летит...';
+      lock(true);sfx.launch();humStart();buzz();
+      st.t0=performance.now()-rtt/2;curM=1;curT=0;lastPoll=performance.now();setBtn();
+      cancelAnimationFrame(st.raf);st.raf=requestAnimationFrame(frame);
+    }).catch(function(e){$('sub').textContent=errText(e)}).then(function(){busy=false});
+  }
+  function applySettle(r){
+    st.bal=r.balance;st.crashAt=r.crashAt;
+    if(r.result==='win'){
+      if(!st.cashed){st.cashed=true;st.cashM=r.mult;sfx.cash();buzz('good');$('m').className='won';$('sub').textContent='+'+money(r.payout)+' ◆ забрано на '+r.mult.toFixed(2)+'x'}
+      bal();setBtn();
+    }else{curM=r.crashAt;curT=Math.log(curM)/G;crash()}
+  }
+  function cash(){
+    if(st.phase!=='flying'||st.cashed||busy)return;
+    busy=true;
+    api('/api/cashout').then(function(r){if(r.status==='settled')applySettle(r)}).catch(function(e){$('sub').textContent=errText(e)}).then(function(){busy=false});
+  }
+  function poll(){
+    polling=true;lastPoll=performance.now();
+    api('/api/status').then(function(r){if(r.status==='settled'&&st.phase==='flying')applySettle(r)}).catch(function(){}).then(function(){polling=false});
+  }
+  function frame(now){
+    if(st.phase!=='flying')return;
+    var t=(now-st.t0)/1000,m=mAt(t);
+    if(st.crashAt>0&&m>=st.crashAt){m=st.crashAt;t=Math.log(m)/G;curM=m;curT=t;crash();return}
+    curM=m;curT=t;
+    if(!st.crashAt&&!polling&&now-lastPoll>150)poll();
+    $('m').textContent=m.toFixed(2)+'x';
+    humSet(m);
+    if(!st.cashed)setBtn();
+    draw(m,t);
+    st.raf=requestAnimationFrame(frame);
+  }
+  function crash(){
+    st.phase='crashed';humStop();sfx.crash();
+    $('m').textContent=curM.toFixed(2)+'x';
+    if(!st.cashed){$('m').className='crash';buzz('bad');$('sub').textContent='Крэш! −'+money(st.bet)+' ◆'}
+    else{$('m').className='won'}
+    var s=$('stage');s.classList.remove('shake');void s.offsetWidth;s.classList.add('shake');
+    boom();
+    st.hist.unshift(st.crashAt);st.hist=st.hist.slice(0,12);histRender();
+    save();bal();lock(false);setBtn();
+    setTimeout(function(){if(st.phase==='crashed'){st.phase='idle';curM=1;curT=0;st.parts=[];$('m').textContent='1.00x';$('m').className='';$('sub').textContent='Сделай ставку и запускай ракету'}},3200);
+    
+  }
+
+  /* ---------- UI wiring ---------- */
+  var q=$('quick');
+  [['½',function(b){return b/2}],['×2',function(b){return b*2}],['+100',function(b){return b+100}],['Макс',function(){return st.bal}]].forEach(function(p){
+    var b=document.createElement('button');b.className='chip';b.textContent=p[0];
+    b.onclick=function(){sfx.tap();$('bet').value=Math.max(1,Math.min(st.bal,Math.floor(p[1](+$('bet').value||1))))};q.appendChild(b);
+  });
+  $('go').onclick=function(){st.phase==='flying'?cash():start()};
+  $('mute').onclick=function(){st.muted=!st.muted;$('mute').textContent=st.muted?'🔇':'🔊';if(st.muted)humStop();else{ctx();sfx.tap()}};
+  bal();histRender();resize();
+  api('/api/auth').then(function(r){st.bal=r.balance;st.hist=r.history;bal();histRender();showFair(r.fair);minesInit(r);bonusInit(r)}).catch(function(e){$('sub').textContent=errText(e)});
+  (function loop(){if(st.phase!=='flying')draw(curM,curT);requestAnimationFrame(loop)})();
+  /* ---------- MINES (server-side) ---------- */
+  var GEM='<svg viewBox="0 0 64 64"><g stroke="#19f2ff" stroke-width="3" stroke-linejoin="round" fill="#0b4a5c"><path d="M18 8h28l14 18-28 32L4 26z"/><path d="M4 26h56M24 26l8 32 8-32M18 8l6 18M46 8l-6 18" fill="none" stroke-width="2"/></g></svg>';
+  var MINE='<svg viewBox="0 0 64 64"><g stroke="#ff3b5c" stroke-width="4" stroke-linecap="round" fill="#3b0814"><circle cx="32" cy="34" r="14"/><path d="M32 12v8M32 48v8M10 34h8M46 34h8M16 18l6 6M42 44l6 6M48 18l-6 6M22 44l-6 6" fill="none"/><path d="M38 20l6-8" stroke="#ffd34d"/></g><circle cx="27" cy="29" r="3" fill="#ff9aae"/></svg>';
+  var MS=[3,5,7,10],MM=[3,4,5,8],mt={n:5,k:3,active:false,opened:0,bet:0,mult:1,busy:false};
+  function mmult(n,k,i){var N=n*n,m=.97;for(var j=0;j<i;j++)m*=(N-j)/(N-k-j);return m}
+  function mfmt(m){return 'x'+(m>=100?m.toFixed(0):m.toFixed(2))}
+  function mMsg(t,c){var e=$('mmsg');e.textContent=t||'';e.className='mmsg '+(c||'')}
+  function mchips(el,list,cur,cb,label){
+    el.innerHTML='';
+    list.forEach(function(v){var b=document.createElement('button');b.className='mc'+(v===cur?' on':'');b.textContent=label(v);b.onclick=function(){if(mt.active)return;sfx.tap();cb(v)};el.appendChild(b)});
+  }
+  function mSetup(){
+    mchips($('msizes'),MS,mt.n,function(v){mt.n=v;mSetup();mBuild()},function(v){return v+'×'+v});
+    mchips($('mmines'),MM,mt.k,function(v){mt.k=v;mSetup()},function(v){return v+' мин'});
+  }
+  function mBuild(){
+    var g=$('mgrid');g.innerHTML='';g.style.gridTemplateColumns='repeat('+mt.n+',1fr)';g.style.gap=mt.n>=10?'3px':mt.n>=7?'4px':'6px';
+    for(var i=0;i<mt.n*mt.n;i++){
+      var c=document.createElement('button');c.className='cell';c.disabled=!mt.active;if(mt.n>=7)c.style.borderRadius='6px';
+      c.onclick=(function(idx,el){return function(){mPick(idx,el)}})(i,c);g.appendChild(c);
+    }
+  }
+  function mLock(on){document.querySelectorAll('#msetup .mc,#mbet').forEach(function(e){e.disabled=on})}
+  function mStats(){
+    var N=mt.n*mt.n;
+    $('mm').textContent=mfmt(mt.mult);$('mn').textContent=mt.opened>=N-mt.k?'—':mfmt(mmult(mt.n,mt.k,mt.opened+1));
+    $('mw').textContent=money(mt.bet*mt.mult);
+    $('mgo').textContent=mt.opened?'Забрать '+money(mt.bet*mt.mult)+' ◆':'Открой клетку';$('mgo').disabled=!mt.opened;
+  }
+  function mEnd(){
+    mt.active=false;mLock(false);$('mgo').classList.remove('cash');$('mgo').disabled=false;$('mgo').textContent='Играть снова';
+    document.querySelectorAll('#mgrid .cell').forEach(function(c){c.disabled=true});
+  }
+  function mReveal(mines){
+    document.querySelectorAll('#mgrid .cell').forEach(function(c,i){
+      if(c.classList.contains('gem')||c.classList.contains('mine'))return;
+      if(mines.indexOf(i)>=0){c.classList.add('mine');c.innerHTML=MINE}else{c.classList.add('dim');c.innerHTML=GEM}
+    });
+  }
+  function mStart(){
+    if(mt.busy)return;var bet=Math.floor(+$('mbet').value);
+    if(!(bet>=1)){mMsg('Введи ставку от 1','l');return}
+    if(bet>st.bal){mMsg('Не хватает баланса','l');return}
+    ctx();musicStart();mt.busy=true;
+    api('/api/mines/start',{amount:bet,n:mt.n,k:mt.k}).then(function(r){
+      st.bal=r.balance;bal();showFair(r.fair);mt.bet=bet;mt.active=true;mt.opened=0;mt.mult=1;
+      mBuild();$('mstats').hidden=false;$('mgo').classList.add('cash');mLock(true);mMsg('');mStats();sfx.tap();buzz();
+    }).catch(function(e){mMsg(errText(e),'l')}).then(function(){mt.busy=false});
+  }
+  function mPick(i,el){
+    if(!mt.active||mt.busy||el.classList.contains('gem'))return;mt.busy=true;
+    api('/api/mines/open',{i:i}).then(function(r){
+      if(r.result==='safe'){el.classList.add('gem');el.innerHTML=GEM;el.disabled=true;mt.opened=r.count;mt.mult=r.mult;sfx.gem(r.count);buzz();mStats()}
+      else if(r.result==='loss'){
+        el.classList.add('mine');el.innerHTML=MINE;mReveal(r.mines);st.bal=r.balance;bal();sfx.mine();buzz('bad');
+        var g=$('mgrid');g.classList.remove('shake');void g.offsetWidth;g.classList.add('shake');
+        mMsg('Мина! −'+money(mt.bet)+' ◆','l');mEnd();
+      }else{
+        el.classList.add('gem');el.innerHTML=GEM;mReveal(r.mines);st.bal=r.balance;bal();sfx.cash();buzz('good');
+        mMsg('Все алмазы! +'+money(r.payout)+' ◆','w');mEnd();
+      }
+    }).catch(function(e){mMsg(errText(e),'l')}).then(function(){mt.busy=false});
+  }
+  function mCash(){
+    if(!mt.active||mt.busy||!mt.opened)return;mt.busy=true;
+    api('/api/mines/cash').then(function(r){
+      st.bal=r.balance;bal();mReveal(r.mines);sfx.cash();buzz('good');mMsg('+'+money(r.payout)+' ◆ ('+mfmt(r.mult)+')','w');mEnd();
+    }).catch(function(e){mMsg(errText(e),'l')}).then(function(){mt.busy=false});
+  }
+  $('mgo').onclick=function(){mt.active?mCash():mStart()};
+  [['½',function(b){return b/2}],['×2',function(b){return b*2}],['+100',function(b){return b+100}],['Макс',function(){return st.bal}]].forEach(function(p){
+    var b=document.createElement('button');b.className='mc';b.textContent=p[0];
+    b.onclick=function(){if(mt.active)return;sfx.tap();$('mbet').value=Math.max(1,Math.min(st.bal,Math.floor(p[1](+$('mbet').value||1))))};$('mquick').appendChild(b);
+  });
+  function minesInit(r){ // restore an unfinished game after reopening the app
+    var g=r.mines;if(!g)return;
+    mt.n=g.n;mt.k=g.k;mt.bet=g.amount;mt.active=true;mt.opened=g.opened.length;mt.mult=g.mult;
+    mSetup();mBuild();
+    var cells=document.querySelectorAll('#mgrid .cell');
+    g.opened.forEach(function(i){cells[i].classList.add('gem');cells[i].innerHTML=GEM;cells[i].disabled=true});
+    $('mstats').hidden=false;$('mgo').classList.add('cash');mLock(true);mStats();
+  }
+
+  /* ---------- bonus, leaderboard, tabs ---------- */
+  var nextBonus=0;
+  function bonusUi(){
+    var left=nextBonus-Date.now(),b=$('bonus');
+    if(left>0){b.disabled=true;$('bmsg').textContent='Следующий бонус через '+Math.floor(left/3600000)+' ч '+Math.floor(left%3600000/60000)+' мин'}
+    else{b.disabled=false;$('bmsg').textContent='Бонус готов!'}
+  }
+  function bonusInit(r){nextBonus=r.nextBonus||0;bonusUi()}
+  $('bonus').onclick=function(){
+    api('/api/bonus').then(function(r){st.bal=r.balance;nextBonus=r.next;bal();bonusUi();sfx.cash();buzz('good');loadTop()}).catch(function(e){$('bmsg').textContent=errText(e)});
+  };
+  function loadTop(){
+    api('/api/top').then(function(r){
+      $('rank').textContent='Твоё место: #'+r.rank;var l=$('toplist');l.innerHTML='';
+      r.top.forEach(function(x){
+        var d=document.createElement('div');d.className='tr'+(x.me?' me':'');
+        var a=document.createElement('span');a.textContent=x.rank+'. '+x.name;
+        var b=document.createElement('b');b.textContent=money(x.balance)+' ◆';
+        d.appendChild(a);d.appendChild(b);l.appendChild(d);
+      });
+    }).catch(function(){});
+  }
+  var TABS=['crash','mines','top'];
+  function showTab(t){
+    TABS.forEach(function(x){$('t-'+x).hidden=x!==t;$('tab-'+x).classList.toggle('on',x===t)});
+    sfx.tap();if(t==='crash')resize();if(t==='top'){loadTop();bonusUi()}
+  }
+  TABS.forEach(function(t){$('tab-'+t).onclick=function(){showTab(t)}});
+  mSetup();mBuild();
+})();
+</script>
+</body>
+</html>

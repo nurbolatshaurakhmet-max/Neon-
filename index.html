@@ -75,6 +75,12 @@ input:disabled{opacity:.45}
 .tr.me{color:var(--cyan);text-shadow:0 0 8px #19f2ff88}
 @keyframes cpop{0%{transform:scale(.2) rotate(-25deg);opacity:0}70%{transform:scale(1.2)}100%{transform:scale(1);opacity:1}}
 @media (prefers-reduced-motion:reduce){.cell svg{animation:none}}
+.tabs button{font-size:13px;padding:10px 2px}
+#m.cd{color:#ff2bd6;text-shadow:0 0 12px #ff2bd6,0 0 30px #ff2bd6;animation:pulse 1s ease-in-out infinite}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:8px 2px;border-bottom:1px solid #2b1d4d;font-size:14px}
+.kv b{color:var(--cyan)}
+.st{padding:3px 9px;border-radius:10px;font-size:12px;font-weight:800;border:1px solid;white-space:nowrap}
+.st.pending{color:#ffd34d;border-color:#ffd34d}.st.paid{color:var(--lime);border-color:var(--lime)}.st.rejected{color:var(--red);border-color:var(--red)}
 </style>
 </head>
 <body>
@@ -83,7 +89,7 @@ input:disabled{opacity:.45}
     <h1>NEON ARCADE</h1>
     <div style="display:flex;align-items:center"><div class="bal"><span id="bal">1000</span> ◆</div><button class="mute on" id="mus" aria-label="Музыка">🎵</button><button class="mute" id="mute" aria-label="Звук">🔊</button></div>
   </div>
-  <nav class="tabs"><button id="tab-crash" class="on">🚀 Crash</button><button id="tab-mines">💎 Mines</button><button id="tab-top">🏆 Топ</button></nav>
+  <nav class="tabs"><button id="tab-crash" class="on">🚀 Crash</button><button id="tab-mines">💎 Mines</button><button id="tab-top">🏆 Топ</button><button id="tab-profile">👤 Профиль</button></nav>
   <section id="t-crash">
   <div class="hist" id="hist"></div>
   <div class="stage" id="stage">
@@ -118,11 +124,20 @@ input:disabled{opacity:.45}
     <div class="lbl" id="fair2" style="margin:10px 0 0;word-break:break-all"></div>
   </section>
 
-  <section id="t-top" hidden>
+  <section id="t-profile" hidden>
+    <div class="panel"><div class="lbl">Профиль</div><div id="pinfo"></div></div>
+    <div class="panel"><div class="lbl">Статистика</div><div id="pstats"></div></div>
     <div class="panel">
-      <button class="go" id="bonus">Ежедневный бонус +500 ◆</button>
-      <div class="lbl" id="bmsg" style="margin:8px 0 0;text-align:center"></div>
+      <div class="lbl">Вывод средств (минимум 100 ◆)</div>
+      <input id="wd" type="number" inputmode="numeric" min="100" placeholder="Сумма" style="margin-bottom:8px">
+      <button class="go" id="wdgo">Подать заявку на вывод</button>
+      <div class="mmsg" id="wdmsg"></div>
+      <div class="lbl">Мои заявки</div><div id="wdlist"></div>
     </div>
+    <div class="panel" id="padmin" hidden><div class="lbl">Админ: заявки на рассмотрении</div><div id="adlist"></div></div>
+  </section>
+
+  <section id="t-top" hidden>
     <div class="panel"><div class="lbl" id="rank"></div><div id="toplist"></div></div>
   </section>
 </div>
@@ -274,9 +289,11 @@ input:disabled{opacity:.45}
   /* ---------- game loop ---------- */
   function setBtn(){
     var b=$('go');b.classList.remove('cash');
-    if(st.phase==='idle'||st.phase==='crashed'){b.disabled=false;b.textContent='Взлёт'}
-    else if(st.phase==='flying'&&!st.cashed){b.disabled=false;b.classList.add('cash');b.textContent='Забрать '+money(st.bet*curM)+' ◆'}
-    else{b.disabled=true;b.textContent='Ждём конец раунда'}
+    if(st.phase==='flying'){
+      if(st.bet>0&&!st.cashed){b.disabled=false;b.classList.add('cash');b.textContent='Забрать '+money(st.bet*curM)+' ◆'}
+      else{b.disabled=true;b.textContent=st.bet>0?'Ждём конец раунда':'Ставки закрыты, смотри полёт'}
+    }else if(cd.on){b.disabled=false;b.textContent=cd.bet?'Ставка принята, отменить':'Поставить ставку'}
+    else{b.disabled=true;b.textContent='Следующий раунд...'}
   }
   function lock(on){$('bet').disabled=on;$('auto').disabled=on;document.querySelectorAll('.chip').forEach(function(c){c.disabled=on})}
   /* ---------- server API (all money logic lives on the server) ---------- */
@@ -286,24 +303,52 @@ input:disabled{opacity:.45}
   }
   function errText(e){
     var m=e&&e.message;
-    return m==='unauthorized'?((tg&&tg.initData)?'Ошибка входа: проверь BOT_TOKEN на сервере':'Открой игру через Telegram'):m==='no_balance'?'Не хватает баланса':m==='round_active'?'Раунд ещё идёт':m==='slow_down'?'Слишком часто':m==='too_early'?'Бонус уже получен':'Ошибка связи, попробуй ещё раз';
+    return m==='unauthorized'?((tg&&tg.initData)?'Ошибка входа: проверь BOT_TOKEN на сервере':'Открой игру через Telegram'):m==='no_balance'?'Не хватает баланса':m==='round_active'?'Раунд ещё идёт':m==='slow_down'?'Слишком часто':m==='wd_pending'?'Предыдущая заявка ещё на рассмотрении':m==='bad_amount'?'Неверная сумма':m==='forbidden'?'Нет доступа':'Ошибка связи, попробуй ещё раз';
   }
   function showFair(f){if(f){var t='Provably fair · hash '+f.hash.slice(0,16)+'… · nonce '+f.nonce;$('fair').textContent=t;$('fair2').textContent=t}}
   var busy=false,polling=false,lastPoll=0,rtt=0;
-  function start(){
-    if(busy)return;
+  var cd={on:false,end:0,bet:0,auto:0,timer:0,paused:false},authed=false;
+  function visibleCrash(){return !document.hidden&&!$('t-crash').hidden}
+  function maybeCycle(){
+    if(st.phase==='flying'||cd.on)return;
+    if(visibleCrash())cycleStart();else cd.paused=true;
+  }
+  function cycleStart(){
+    cd.paused=false;cd.on=true;cd.bet=0;cd.auto=0;cd.end=performance.now()+5000;
+    st.phase='idle';curM=1;curT=0;st.parts=[];st.bet=0;st.cashed=false;
+    lock(false);$('m').className='cd';cdUpdate();setBtn();
+    clearInterval(cd.timer);cd.timer=setInterval(cdTick,100);
+  }
+  function cdUpdate(){
+    $('m').textContent=String(Math.max(0,Math.ceil((cd.end-performance.now())/1000)));
+    $('sub').textContent=cd.bet?'Ставка '+money(cd.bet)+' ◆ принята':'Успей поставить, иначе ракета взлетит без тебя';
+  }
+  function cdTick(){
+    if(!visibleCrash()){clearInterval(cd.timer);cd.on=false;cd.paused=true;setBtn();return}
+    if(cd.end-performance.now()<=0){clearInterval(cd.timer);cd.on=false;launch(cd.bet,cd.auto);return}
+    cdUpdate();
+  }
+  function toggleBet(){
+    if(cd.bet){cd.bet=0;cd.auto=0;lock(false);sfx.tap();cdUpdate();setBtn();return}
     var bet=Math.floor(+$('bet').value);
     if(!(bet>=1)){$('sub').textContent='Введи ставку от 1';return}
     if(bet>st.bal){$('sub').textContent='Не хватает баланса';return}
-    ctx();musicStart();var a=parseFloat($('auto').value);st.auto=a>1?a:0;busy=true;var t1=performance.now();
-    api('/api/bet',{amount:bet,auto:st.auto||null}).then(function(r){
-      rtt=performance.now()-t1;st.bet=bet;st.bal=r.balance;bal();showFair(r.fair);
+    ctx();musicStart();var a=parseFloat($('auto').value);
+    cd.bet=bet;cd.auto=a>1?a:0;lock(true);sfx.tap();buzz();cdUpdate();setBtn();
+  }
+  function launch(amount,auto){
+    busy=true;var t1=performance.now();
+    api('/api/bet',{amount:amount,auto:auto||null}).then(function(r){
+      rtt=performance.now()-t1;st.bet=amount;st.auto=auto||0;st.bal=r.balance;bal();showFair(r.fair);
       st.cashed=false;st.cashM=0;st.crashAt=0;st.phase='flying';st.parts=[];
-      $('m').className='fly';$('sub').textContent='Ракета летит...';
-      lock(true);sfx.launch();humStart();buzz();
+      $('m').className='fly';$('sub').textContent=amount?'Ракета летит...':'Ты не успел поставить, смотри полёт';
+      lock(true);sfx.launch();humStart();if(amount)buzz();
       st.t0=performance.now()-rtt/2;curM=1;curT=0;lastPoll=performance.now();setBtn();
       cancelAnimationFrame(st.raf);st.raf=requestAnimationFrame(frame);
-    }).catch(function(e){$('sub').textContent=errText(e)}).then(function(){busy=false});
+    }).catch(function(e){
+      $('sub').textContent=errText(e);
+      if(amount>0)launch(0,0);else setTimeout(maybeCycle,3000);
+    }).then(function(){busy=false});
   }
   function applySettle(r){
     st.bal=r.balance;st.crashAt=r.crashAt;
@@ -336,13 +381,13 @@ input:disabled{opacity:.45}
   function crash(){
     st.phase='crashed';humStop();sfx.crash();
     $('m').textContent=curM.toFixed(2)+'x';
-    if(!st.cashed){$('m').className='crash';buzz('bad');$('sub').textContent='Крэш! −'+money(st.bet)+' ◆'}
+    if(!st.cashed){$('m').className='crash';buzz('bad');$('sub').textContent=(st.bet?'Крэш! −'+money(st.bet)+' ◆':'Крэш на '+curM.toFixed(2)+'x')}
     else{$('m').className='won'}
     var s=$('stage');s.classList.remove('shake');void s.offsetWidth;s.classList.add('shake');
     boom();
     st.hist.unshift(st.crashAt);st.hist=st.hist.slice(0,12);histRender();
     save();bal();lock(false);setBtn();
-    setTimeout(function(){if(st.phase==='crashed'){st.phase='idle';curM=1;curT=0;st.parts=[];$('m').textContent='1.00x';$('m').className='';$('sub').textContent='Сделай ставку и запускай ракету'}},3200);
+    setTimeout(maybeCycle,3000);
     
   }
 
@@ -352,10 +397,10 @@ input:disabled{opacity:.45}
     var b=document.createElement('button');b.className='chip';b.textContent=p[0];
     b.onclick=function(){sfx.tap();$('bet').value=Math.max(1,Math.min(st.bal,Math.floor(p[1](+$('bet').value||1))))};q.appendChild(b);
   });
-  $('go').onclick=function(){st.phase==='flying'?cash():start()};
+  $('go').onclick=function(){if(st.phase==='flying')cash();else if(cd.on)toggleBet();else if(authed)maybeCycle()};
   $('mute').onclick=function(){st.muted=!st.muted;$('mute').textContent=st.muted?'🔇':'🔊';if(st.muted)humStop();else{ctx();sfx.tap()}};
   bal();histRender();resize();
-  api('/api/auth').then(function(r){st.bal=r.balance;st.hist=r.history;bal();histRender();showFair(r.fair);minesInit(r);bonusInit(r)}).catch(function(e){$('sub').textContent=errText(e)});
+  api('/api/auth').then(function(r){st.bal=r.balance;st.hist=r.history;bal();histRender();showFair(r.fair);minesInit(r);authed=true;maybeCycle()}).catch(function(e){$('sub').textContent=errText(e)});
   (function loop(){if(st.phase!=='flying')draw(curM,curT);requestAnimationFrame(loop)})();
   /* ---------- MINES (server-side) ---------- */
   var GEM='<svg viewBox="0 0 64 64"><g stroke="#19f2ff" stroke-width="3" stroke-linejoin="round" fill="#0b4a5c"><path d="M18 8h28l14 18-28 32L4 26z"/><path d="M4 26h56M24 26l8 32 8-32M18 8l6 18M46 8l-6 18" fill="none" stroke-width="2"/></g></svg>';
@@ -441,16 +486,6 @@ input:disabled{opacity:.45}
   }
 
   /* ---------- bonus, leaderboard, tabs ---------- */
-  var nextBonus=0;
-  function bonusUi(){
-    var left=nextBonus-Date.now(),b=$('bonus');
-    if(left>0){b.disabled=true;$('bmsg').textContent='Следующий бонус через '+Math.floor(left/3600000)+' ч '+Math.floor(left%3600000/60000)+' мин'}
-    else{b.disabled=false;$('bmsg').textContent='Бонус готов!'}
-  }
-  function bonusInit(r){nextBonus=r.nextBonus||0;bonusUi()}
-  $('bonus').onclick=function(){
-    api('/api/bonus').then(function(r){st.bal=r.balance;nextBonus=r.next;bal();bonusUi();sfx.cash();buzz('good');loadTop()}).catch(function(e){$('bmsg').textContent=errText(e)});
-  };
   function loadTop(){
     api('/api/top').then(function(r){
       $('rank').textContent='Твоё место: #'+r.rank;var l=$('toplist');l.innerHTML='';
@@ -462,10 +497,65 @@ input:disabled{opacity:.45}
       });
     }).catch(function(){});
   }
-  var TABS=['crash','mines','top'];
+  function kv(parent,k,v){
+    var d=document.createElement('div');d.className='kv';
+    var a=document.createElement('span');a.textContent=k;var b=document.createElement('b');b.textContent=v;
+    d.appendChild(a);d.appendChild(b);parent.appendChild(d);
+  }
+  function fdate(ts){var d=new Date(ts);return d.toLocaleDateString('ru-RU')+' '+d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}
+  var WS={pending:'На рассмотрении',paid:'Выплачено',rejected:'Отклонено'};
+  function loadProfile(){
+    api('/api/profile').then(function(r){
+      var p=$('pinfo');p.innerHTML='';
+      kv(p,'Имя',r.name||'—');kv(p,'Username',r.username?'@'+r.username:'—');kv(p,'Telegram ID',String(r.id));
+      kv(p,'В игре с',fdate(r.since));kv(p,'Баланс',money(r.balance)+' ◆');
+      var s=$('pstats');s.innerHTML='';
+      var n=r.crash.n+r.mines.n,bet=r.crash.bet+r.mines.bet,won=r.crash.won+r.mines.won,diff=won-bet;
+      kv(s,'Всего игр',String(n));kv(s,'Crash / Mines',r.crash.n+' / '+r.mines.n);
+      kv(s,'Сумма ставок',money(bet)+' ◆');kv(s,'Выиграно',money(won)+' ◆');
+      kv(s,'Итог',(diff>=0?'+':'−')+money(Math.abs(diff))+' ◆');
+      kv(s,'Лучший икс Crash',r.crash.best?r.crash.best.toFixed(2)+'x':'—');
+      kv(s,'Лучший икс Mines',r.mines.best?r.mines.best.toFixed(2)+'x':'—');
+      var l=$('wdlist');l.innerHTML='';
+      if(!r.withdrawals.length){var e=document.createElement('div');e.className='lbl';e.textContent='Заявок пока нет';l.appendChild(e)}
+      r.withdrawals.forEach(function(w){
+        var d=document.createElement('div');d.className='kv';
+        var a=document.createElement('span');a.textContent='#'+w.id+' · '+money(w.amount)+' ◆ · '+fdate(w.created_at);
+        var b=document.createElement('span');b.className='st '+w.status;b.textContent=WS[w.status]||w.status;
+        d.appendChild(a);d.appendChild(b);l.appendChild(d);
+      });
+      $('padmin').hidden=!r.admin;if(r.admin)loadAdmin();
+    }).catch(function(e){$('wdmsg').textContent=errText(e)});
+  }
+  $('wdgo').onclick=function(){
+    var a=Math.floor(+$('wd').value),m=$('wdmsg');
+    if(!(a>=100)){m.textContent='Минимум 100 ◆';m.className='mmsg l';return}
+    api('/api/withdraw',{amount:a}).then(function(r){
+      st.bal=r.balance;bal();$('wd').value='';m.textContent='Заявка отправлена';m.className='mmsg w';loadProfile();
+    }).catch(function(e){m.textContent=errText(e);m.className='mmsg l'});
+  };
+  function loadAdmin(){
+    api('/api/admin/list').then(function(rows){
+      var l=$('adlist');l.innerHTML='';
+      if(!rows.length){l.textContent='Нет ожидающих заявок';return}
+      rows.forEach(function(w){
+        var d=document.createElement('div');d.className='kv';d.style.flexWrap='wrap';d.style.gap='6px';
+        var a=document.createElement('span');a.textContent='#'+w.id+' '+(w.first_name||'')+(w.username?' @'+w.username:'')+' · ID '+w.tg_id+' · '+money(w.amount)+' ◆';
+        d.appendChild(a);
+        [['paid','Выплачено'],['rejected','Отклонить']].forEach(function(x){
+          var b=document.createElement('button');b.className='mc';b.style.flex='none';b.textContent=x[1];
+          b.onclick=function(){api('/api/admin/set',{id:w.id,status:x[0]}).then(loadAdmin).catch(function(e){$('wdmsg').textContent=errText(e)})};
+          d.appendChild(b);
+        });
+        l.appendChild(d);
+      });
+    }).catch(function(){});
+  }
+  document.addEventListener('visibilitychange',function(){if(!document.hidden&&cd.paused)maybeCycle()});
+  var TABS=['crash','mines','top','profile'];
   function showTab(t){
     TABS.forEach(function(x){$('t-'+x).hidden=x!==t;$('tab-'+x).classList.toggle('on',x===t)});
-    sfx.tap();if(t==='crash')resize();if(t==='top'){loadTop();bonusUi()}
+    sfx.tap();if(t==='crash'){resize();if(cd.paused)maybeCycle()}if(t==='top')loadTop();if(t==='profile')loadProfile()
   }
   TABS.forEach(function(t){$('tab-'+t).onclick=function(){showTab(t)}});
   mSetup();mBuild();
